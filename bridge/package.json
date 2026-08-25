@@ -1,0 +1,25 @@
+{
+  "name": "@ni-hw-watch/codex-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LAN bridge that exposes Codex status to the HarmonyOS watch app.",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}
