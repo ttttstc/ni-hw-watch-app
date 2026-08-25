@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "Codex status gauge and task reminder"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "Codex Gauge"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "Codex Gauge"
+    }
+  ]
+}
