@@ -3,7 +3,14 @@ import { networkInterfaces, hostname } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { WebSocket, WebSocketServer } from 'ws';
 import { StateStore } from './state.js';
-import type { BridgeEvent, CodexStatePatch, PingCommand } from './protocol.js';
+import type {
+  BridgeEvent,
+  CodexStatePatch,
+  HeartbeatEvent,
+  PingCommand,
+  PongEvent,
+  SnapshotEvent
+} from './protocol.js';
 
 const HOST = process.env.CODEX_WATCH_HOST ?? '0.0.0.0';
 const PORT = Number.parseInt(process.env.CODEX_WATCH_PORT ?? '8787', 10);
@@ -39,8 +46,8 @@ function isAuthorized(req: IncomingMessage, url = getUrl(req)): boolean {
   if (authHeader === `Bearer ${TOKEN}`) {
     return true;
   }
-  // Query-token support is intentionally retained for the first wearable spike,
-  // where setting custom WebSocket headers can vary by HarmonyOS SDK version.
+  // Kept only for the first WATCH 4 Pro connectivity spike. Replace this with
+  // one-time pairing before prompt/task data is used outside a trusted LAN.
   return url.searchParams.get('token') === TOKEN;
 }
 
@@ -61,19 +68,29 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
 }
 
-function event(type: BridgeEvent['type'], data?: BridgeEvent extends infer _T ? unknown : never): BridgeEvent {
-  const base = {
-    type,
+function snapshotEvent(): SnapshotEvent {
+  return {
+    type: 'snapshot',
+    eventId: randomUUID(),
+    sentAt: new Date().toISOString(),
+    data: stateStore.get()
+  };
+}
+
+function heartbeatEvent(): HeartbeatEvent {
+  return {
+    type: 'heartbeat',
     eventId: randomUUID(),
     sentAt: new Date().toISOString()
   };
-  if (type === 'snapshot') {
-    return { ...base, type: 'snapshot', data: data ?? stateStore.get() } as BridgeEvent;
-  }
-  if (type === 'pong') {
-    return { ...base, type: 'pong' };
-  }
-  return { ...base, type: 'heartbeat' };
+}
+
+function pongEvent(): PongEvent {
+  return {
+    type: 'pong',
+    eventId: randomUUID(),
+    sentAt: new Date().toISOString()
+  };
 }
 
 function send(ws: WebSocket, message: BridgeEvent): void {
@@ -83,7 +100,7 @@ function send(ws: WebSocket, message: BridgeEvent): void {
 }
 
 function broadcastSnapshot(): void {
-  const message = event('snapshot', stateStore.get());
+  const message = snapshotEvent();
   for (const client of wss.clients) {
     send(client, message);
   }
@@ -134,17 +151,16 @@ const server = createServer(async (req, res) => {
 });
 
 wss.on('connection', (ws) => {
-  send(ws, event('snapshot', stateStore.get()));
+  send(ws, snapshotEvent());
 
   ws.on('message', (raw) => {
     try {
       const command = JSON.parse(raw.toString()) as PingCommand;
       if (command.type === 'ping') {
-        send(ws, event('pong'));
+        send(ws, pongEvent());
       }
     } catch {
-      // Ignore malformed client messages. The first protocol version is read-only
-      // except for ping/pong and does not expose task-control operations.
+      // Protocol v1 is read-only except for ping/pong. Ignore unknown commands.
     }
   });
 });
@@ -163,7 +179,7 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 const heartbeatTimer = setInterval(() => {
-  const message = event('heartbeat');
+  const message = heartbeatEvent();
   for (const client of wss.clients) {
     send(client, message);
   }
