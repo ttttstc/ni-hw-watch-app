@@ -1,0 +1,17 @@
+# HarmonyOS / DevEco
+.idea/
+*.iml
+.hvigor/
+.ohpm/
+build/
+**/build/
+local.properties
+
+# Node
+node_modules/
+bridge/dist/
+bridge/.env
+
+# OS
+.DS_Store
+Thumbs.db
